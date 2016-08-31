@@ -26,6 +26,41 @@ typedef struct
 	EC_GROUP *group;
 } group_st;
 
+int KDF(char *str, int len, char *K, int klen) 
+{
+	ULONG ct = 0x00000001;
+	int bit_len = klen * 8;
+	int group_number = (bit_len + 255) / 256;
+	int Hlen = group_number * 32;
+	UCHAR H[Hlen];
+	int i, j;
+	sm3_context context;
+	sm3_context_init(&context);
+
+	for (i = 0; i < group_number; i++)
+	{
+		str[len]   = (ct >> 24);
+		str[len+1] = (ct >> 16);
+		str[len+2] = (ct >> 8 );
+		str[len+3] = (ct      );
+		sm3_hash(str, (len+4), &context);
+
+		for(j = 0; j < 8; j++)
+		{
+			H[i*32+j*4]   = ((context.IV_I[j]) >> 24);
+			H[i*32+j*4+1] = ((context.IV_I[j]) >> 16);
+			H[i*32+j*4+2] = ((context.IV_I[j]) >> 8 );
+			H[i*32+j*4+3] = ((context.IV_I[j])      );
+		}
+		ct++;
+	}
+	memcpy(K, H, klen);
+
+	return 0;
+}
+
+
+
 /*
 **set group
  */
@@ -42,6 +77,8 @@ EC_GROUP *group_new()
 	Group->ctx = BN_CTX_new();
 	return Group;
 }
+
+
 
 int group_init(char **strValue, group_st *Group)
 {
@@ -649,9 +686,6 @@ int main(int argc, char **argv)
 	 * exchange key
 	 */
 	
-	/*
-     * set A parameters 		
-	 */
 	
 	/*
 	 * generate A public and private key
@@ -659,12 +693,16 @@ int main(int argc, char **argv)
 
 	SM2_key * sm2_key_A;
 	sm2_key_A = sm2_key_new(Group);
-	Public *public_A;
+	PubKey *public_A;
 	public_A = pub_key_new();
-	set_sm2_key_init(sm2_para_dh_d_A, Group, sm2_key_A, public_A);
+	set_sm2_key_init(sm2_param_dh_d_A, Group, sm2_key_A, public_A);
 	showBN(public_A->x);
 	showBN(public_A->y);
 	showBN(sm2_key_A->priv_key);
+
+	/*
+     * set A parameters 		
+	 */
 
     BIGNUM *RA_B, *RAX_B, *RAY_B;
     EC_POINT *RA_P;
@@ -675,7 +713,77 @@ int main(int argc, char **argv)
     RA_P = EC_POINT_new(Group->group);
     BN_hex2bn(&RA_B, sm2_param_dh_r_A[0]);
     EC_POINT_mul(Group->group, RA_P, NULL, Group->G, RA_B, Group->ctx);
-    EC_POINT_get_affine_coordinates_GFp(Group->group, RA_P, RX_B, RY_B, Group->ctx);
+    EC_POINT_get_affine_coordinates_GFp(Group->group, RA_P, RAX_B, RAY_B, Group->ctx);
+    showBN(RA_B);
+    showBN(RAX_B);
+    showBN(RAY_B);
+    /*
+     * caculate ZA
+     */
+    char *A_info = "ALICE123@YAHOO.COM";
+    int A_info_len;
+    A_info_len = (int)strlen(A_info) * 8;
+    printf("A_info_len: %d\n", A_info_len);
+    unsigned char Z_A_temp[1000];
+    //unsigned char Z_A[32];
+    int pos_ZA = 0;
+    Z_A_temp[pos_ZA] = (A_info_len >> 8) & 0xFF;
+    pos_ZA++;
+    Z_A_temp[pos_ZA] = A_info_len & 0xFF;
+    pos_ZA++;
+    memcpy(&Z_A_temp[pos_ZA], A_info, A_info_len);
+    pos_ZA += (A_info_len/8);
+    int bn_len;
+    bn_len = BN_num_bytes(Group->a);
+    BN_bn2bin(Group->a, &Z_A_temp[pos_ZA]);
+    showBN(Group->a);
+    pos_ZA += bn_len;
+    BN_bn2bin(Group->b, &Z_A_temp[pos_ZA]);
+    showBN(Group->b);
+    pos_ZA += bn_len;
+    BN_bn2bin(Group->Gx, &Z_A_temp[pos_ZA]);
+    showBN(Group->Gx);
+    pos_ZA += bn_len;
+    BN_bn2bin(Group->Gy, &Z_A_temp[pos_ZA]);
+    showBN(Group->Gy);
+    pos_ZA += bn_len;
+    BN_bn2bin(public_A->x, &Z_A_temp[pos_ZA]);
+    showBN(public_A->x);
+    pos_ZA += bn_len;
+    BN_bn2bin(public_A->y, &Z_A_temp[pos_ZA]);
+    showBN(public_A->y);
+    pos_ZA += bn_len;
+    printf("pos_ZA: %d\n", pos_ZA);
+    for (i = 0; i < pos_ZA; i++)
+    {
+    	printf("%02x", Z_A_temp[i]);
+    	if ((i-19) % 32 == 0)
+    		printf("\n");
+    }
+    printf("\n");
+
+    sm3_context Z_A_context;
+    sm3_context_init(&Z_A_context);
+    sm3_hash(Z_A_temp, pos_ZA, &Z_A_context);
+    for (i = 0; i < 8; i++)
+    {
+    	Z_A[4*i  ] = Z_A_context.IV_I[i] >> 24;
+    	Z_A[4*i+1] = Z_A_context.IV_I[i] >> 16;
+    	Z_A[4*i+2] = Z_A_context.IV_I[i] >> 8;
+    	Z_A[4*i+3] = Z_A_context.IV_I[i];
+    }
+    printf("Z_A value:\n");
+    printf("**************************\n");
+
+    for (i = 0 ; i < 32; i++)
+    {
+    	printf("%02x", Z_A[i]);
+    	if ((i+1)%4 == 0)
+    		printf("\n");
+    }
+
+
+
 
     
 
@@ -684,14 +792,16 @@ int main(int argc, char **argv)
      */
     SM2_key *sm2_key_B;
 	sm2_key_B = sm2_key_new(Group);
-	PubKey *pubkey_B;
-	pubkey_B = pub_key_new();
-	set_sm2_key_init(sm2_param_dh_r_B, Group, sm2_key_B, pubkey_B);
-	//get_sm2_key_init(Group, sm2_key, pubkey);
-	showBN(pubkey_B->x);
-	showBN(pubkey_B->y);
+	PubKey *public_B;
+	public_B = pub_key_new();
+	set_sm2_key_init(sm2_param_dh_d_B, Group, sm2_key_B, public_B);
+	showBN(public_B->x);
+	showBN(public_B->y);
 	showBN(sm2_key_B->priv_key);
 
+	/*
+	 * set B parameters
+	 */
 
     BIGNUM *RB_B, *RBX_B, *RBY_B;
     EC_POINT *RB_P;
@@ -701,6 +811,160 @@ int main(int argc, char **argv)
     RBY_B = BN_new();
     RB_P = EC_POINT_new(Group->group);
     BN_hex2bn(&RB_B, sm2_param_dh_r_B[0]);
+    EC_POINT_mul(Group->group, RB_P, NULL, Group->G, RB_B, Group->ctx);
+    EC_POINT_get_affine_coordinates_GFp(Group->group, RB_P, RBX_B, RBY_B, Group->ctx);
+    showBN(RB_B);
+    showBN(RBX_B);
+    showBN(RBY_B);
+    
+    /*
+     * caculate Z_B
+     */
+    char *B_info = "BILL456@YAHOO.COM";
+    int B_info_len;
+    B_info_len = (int)strlen(B_info) * 8;
+    printf("B_info_len: %d\n", B_info_len);
+    unsigned char Z_B_temp[1000];
+    unsigned char Z_B[32];
+    int pos_ZB = 0;
+    Z_B_temp[pos_ZB] = (B_info_len >> 8) & 0xFF;
+    pos_ZB++;
+    Z_B_temp[pos_ZB] = B_info_len & 0xFF;
+    pos_ZB++;
+    memcpy(&Z_B_temp[pos_ZB], B_info, B_info_len);
+    pos_ZB += (B_info_len/8);
+    //int bn_len;
+    bn_len = BN_num_bytes(Group->a);
+    BN_bn2bin(Group->a, &Z_B_temp[pos_ZB]);
+    showBN(Group->a);
+    pos_ZB += bn_len;
+    BN_bn2bin(Group->b, &Z_B_temp[pos_ZB]);
+    showBN(Group->b);
+    pos_ZB += bn_len;
+    BN_bn2bin(Group->Gx, &Z_B_temp[pos_ZB]);
+    showBN(Group->Gx);
+    pos_ZB += bn_len;
+    BN_bn2bin(Group->Gy, &Z_B_temp[pos_ZB]);
+    showBN(Group->Gy);
+    pos_ZB += bn_len;
+    BN_bn2bin(public_B->x, &Z_B_temp[pos_ZB]);
+    showBN(public_B->x);
+    pos_ZB += bn_len;
+    BN_bn2bin(public_B->y, &Z_B_temp[pos_ZB]);
+    showBN(public_B->y);
+    pos_ZB += bn_len;
+    printf("pos_ZB: %d\n", pos_ZB);
+    for (i = 0; i < pos_ZB; i++)
+    {
+    	printf("%02x", Z_B_temp[i]);
+    	if ((i-19) % 32 == 0)
+    		printf("\n");
+    }
+    printf("\n");
+
+    sm3_context Z_B_context;
+    sm3_context_init(&Z_B_context);
+    sm3_hash(Z_B_temp, pos_ZB, &Z_B_context);
+    for (i = 0; i < 8; i++)
+    {
+    	Z_B[4*i  ] = Z_B_context.IV_I[i] >> 24;
+    	Z_B[4*i+1] = Z_B_context.IV_I[i] >> 16;
+    	Z_B[4*i+2] = Z_B_context.IV_I[i] >> 8;
+    	Z_B[4*i+3] = Z_B_context.IV_I[i];
+    }
+    printf("Z_B value:\n");
+    printf("**************************\n");
+    for (i = 0 ; i < 32; i++)
+    {
+    	printf("%02x", Z_B[i]);
+    	if ((i+1)%4 == 0)
+    		printf("\n");
+    }
+    
+
+    BIGNUM *B_2_W, *B_one, *B_2_inv;
+    int B_2_W_len;
+    B_2_W = BN_new();
+    B_one = BN_new();
+    B_2_inv = BN_new();
+    BN_one(B_one);
+    BN_hex2bn(&B_2_W, "80000000000000000000000000000000");
+    // B_2_W_len = BN_num_bytes(B_2_W);
+    // BN_sub(B_2_inv, B_2_W, B_one);
+    BIGNUM *X_2;
+    X_2 = BN_new();
+    BN_mod(X_2, RBX_B, B_2_W, Group->ctx);
+    BN_add(X_2, X_2, B_2_W);
+    showBN(X_2);
+
+    BIGNUM *t_B;
+    BIGNUM *X_1; 
+    t_B = BN_new();
+    X_1 = BN_new();
+    BN_mod_mul(t_B, X_2, RB_B, Group->n, Group->ctx);
+    BN_mod_add(t_B, t_B, sm2_key_B->priv_key, Group->n, Group->ctx);
+    BN_mod(X_1, RAX_B, B_2_W, Group->ctx);
+    BN_add(X_1, X_1, B_2_W);
+    showBN(t_B);
+    showBN(X_1);
+
+    EC_POINT *RA0, *RA1;
+    BIGNUM *XA0, *XA1, *YA0, *YA1;
+    
+    RA0 = EC_POINT_new(Group->group);
+    RA1 = EC_POINT_new(Group->group);
+    XA0 = BN_new();
+    YA0 = BN_new();
+    XA1 = BN_new();
+    YA1 = BN_new();
+
+    EC_POINT_mul(Group->group, RA0, NULL, RA_P, X_1, Group->ctx);
+    EC_POINT_get_affine_coordinates_GFp(Group->group, RA0, XA0, YA0, Group->ctx);
+    showBN(XA0);
+    showBN(YA0);
+
+    EC_POINT_add(Group->group, RA1, RA0, sm2_key_A->pub_key, Group->ctx);
+    EC_POINT_get_affine_coordinates_GFp(Group->group, RA1, XA1, YA1, Group->ctx);
+    showBN(XA1);
+    showBN(YA1); 
+
+    BIGNUM *h, *h_temp;
+    BIGNUM *XV, *YV;
+    EC_POINT *V_P;
+    V_P = EC_POINT_new(Group->group);
+    h = BN_new();
+    h_temp = BN_new();
+    XV = BN_new();
+    YV = BN_new();
+    BN_hex2bn(&h, "1");
+    //BN_set_word(h, "1");
+    showBN(h);
+    BN_mul(h_temp, h, t_B, Group->ctx);
+    EC_POINT_mul(Group->group, V_P, NULL, RA1, h_temp, Group->ctx);
+    EC_POINT_get_affine_coordinates_GFp(Group->group, V_P, XV, YV, Group->ctx);
+    showBN(XV);
+    showBN(YV);
+
+    unsigned char K_B_KDF[1000];
+    int xv_len;
+    int K_B_pos = 0;
+    xv_len = BN_num_bytes(XV);
+    BN_bn2bin(XV, K_B_KDF);
+    K_B_pos += xv_len;
+    BN_bn2bin(YV, &K_B_KDF[K_B_pos]);
+    K_B_pos += xv_len;
+    memcpy(&K_B_KDF[K_B_pos], Z_A, 32);
+    K_B_pos += 32;
+    memcpy(&K_B_KDF[K_B_pos], Z_B, 32);
+    K_B_pos += 32;
+
+    unsigned char K_B[16];
+    KDF(K_B_KDF, K_B_pos, K_B, 16);
+    for (i = 0; i < 16; i++)
+    	printf("%02x ", K_B[i]);
+    printf("\n");
+
+
 
 
 	return 0;
