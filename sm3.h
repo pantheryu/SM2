@@ -36,4 +36,5 @@ static ULONG T1 = 0x7a879d8a;
 
 int sm3_context_init(sm3_context *context);
 ULONG CF(sm3_context *context, ULONG BL[16]);
-int sm3_hash(UCHAR *message, int len, sm3_context *context);
+int sm3_hash_half(UCHAR *message, int len, sm3_context *context);
+int sm3_hash(UCHAR *message, int len, UCHAR *Z);

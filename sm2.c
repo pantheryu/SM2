@@ -11,7 +11,7 @@ typedef struct
 {
 	BIGNUM *x;
 	BIGNUM *y;
-} PubKey;
+} POINT;
 
 typedef struct 
 {
@@ -161,17 +161,17 @@ void sm2_key_free(SM2_key *key)
 	}
 }
 
-PubKey *pub_key_new()
+POINT *pub_key_new()
 {
-	PubKey *pkey;
-	pkey = (PubKey *)malloc(sizeof(PubKey));
+	POINT *pkey;
+	pkey = (POINT *)malloc(sizeof(POINT));
 	pkey->x = BN_new();
 	pkey->y = BN_new();
 
 	return pkey;
 }
 
-void pub_key_free(PubKey *pkey)
+void pub_key_free(POINT *pkey)
 {
 	if (pkey)
 	{
@@ -186,7 +186,7 @@ void pub_key_free(PubKey *pkey)
 /*
  * generate public keys according to private key that you set
  */
-int set_sm2_key_init(char **str_pri, group_st *Group, SM2_key *key, PubKey *pkey)
+int set_sm2_key_init(char **str_pri, group_st *Group, SM2_key *key, POINT *pkey)
 {
 	BN_hex2bn(&key->priv_key, str_pri[0]);
 	if (!EC_POINT_mul(Group->group, key->pub_key, key->priv_key, NULL, NULL, Group->ctx)) return -1;
@@ -211,7 +211,7 @@ int set_sm2_key_init(char **str_pri, group_st *Group, SM2_key *key, PubKey *pkey
 /*
  * generate public and private keys automatically
  */
-int get_sm2_key_init(group_st *Group, SM2_key *key, PubKey *pkey)
+int get_sm2_key_init(group_st *Group, SM2_key *key, POINT *pkey)
 {
 	EC_KEY *ecc_key;
 	ecc_key = EC_KEY_new();
@@ -236,7 +236,7 @@ int gen_key()
 
 	SM2_key *sm2_key;
 	sm2_key = sm2_key_new(Group);
-	PubKey *pubkey;
+	POINT *pubkey;
 	pubkey = pub_key_new();
 	//set_sm2_key_init(sm2_param_digest_d_A, Group, sm2_key, pubkey);
 	get_sm2_key_init(Group, sm2_key, pubkey);
@@ -408,7 +408,7 @@ int main(int argc, char **argv)
 
 	SM2_key *sm2_key;
 	sm2_key = sm2_key_new(Group);
-	PubKey *pubkey;
+	POINT *pubkey;
 	pubkey = pub_key_new();
 	set_sm2_key_init(sm2_param_digest_d_A, Group, sm2_key, pubkey);
 	//get_sm2_key_init(Group, sm2_key, pubkey);
@@ -503,23 +503,24 @@ int main(int argc, char **argv)
 	pos += messlen;
 	printf("pos: %d\n", pos);
 
-	sm3_context context;
-	sm3_context_init(&context);
-	sm3_hash(bin, pos, &context);
+	// sm3_context context;
+	// sm3_context_init(&context);
+	// sm3_hash(bin, pos, &context);
 	int i;
-	for (i = 0; i < 8; i++)
-	{	
-		printf("%x ", context.IV_I[i]);
-	}
+	// for (i = 0; i < 8; i++)
+	// {	
+	// 	printf("%x ", context.IV_I[i]);
+	// }
 
 	unsigned char Z_A[32];
-	for (i = 0; i < 8; i++)
-	{
-		Z_A[4*i] =   (unsigned char) ((context.IV_I[i]) >> 24);
-		Z_A[4*i+1] = (unsigned char) ((context.IV_I[i]) >> 16);
-		Z_A[4*i+2] = (unsigned char) ((context.IV_I[i]) >> 8 );
-		Z_A[4*i+3] = (unsigned char) ((context.IV_I[i])      );
-	}
+	sm3_hash(bin, pos, Z_A);
+	// for (i = 0; i < 8; i++)
+	// {
+	// 	Z_A[4*i] =   (unsigned char) ((context.IV_I[i]) >> 24);
+	// 	Z_A[4*i+1] = (unsigned char) ((context.IV_I[i]) >> 16);
+	// 	Z_A[4*i+2] = (unsigned char) ((context.IV_I[i]) >> 8 );
+	// 	Z_A[4*i+3] = (unsigned char) ((context.IV_I[i])      );
+	// }
 	for (i = 0; i < 32; i++)
 		printf("Z_A[%d]: %0x ", i, Z_A[i]);
 
@@ -538,23 +539,24 @@ int main(int argc, char **argv)
 	}
 	printf("\n");
 
-	sm3_context context1;
-	sm3_context_init(&context1);
-	sm3_hash(MM, MM_len, &context1);
+	// sm3_context context1;
+	// sm3_context_init(&context1);
+	// sm3_hash(MM, MM_len, &context1);
 
-	for (i = 0; i < 8; i++)
-	{	
-		printf("%x\n", context1.IV_I[i]);
-	}
+	// for (i = 0; i < 8; i++)
+	// {	
+	// 	printf("%x\n", context1.IV_I[i]);
+	// }
 
 	unsigned char eHash[32];
-	for (i = 0; i < 8; i++)
-	{
-		eHash[4*i  ] = (unsigned char) ((context1.IV_I[i]) >> 24);
-		eHash[4*i+1] = (unsigned char) ((context1.IV_I[i]) >> 16);
-		eHash[4*i+2] = (unsigned char) ((context1.IV_I[i]) >> 8 );
-		eHash[4*i+3] = (unsigned char) ((context1.IV_I[i])      );
-	}
+	sm3_hash(MM, MM_len, eHash);
+	// for (i = 0; i < 8; i++)
+	// {
+	// 	eHash[4*i  ] = (unsigned char) ((context1.IV_I[i]) >> 24);
+	// 	eHash[4*i+1] = (unsigned char) ((context1.IV_I[i]) >> 16);
+	// 	eHash[4*i+2] = (unsigned char) ((context1.IV_I[i]) >> 8 );
+	// 	eHash[4*i+3] = (unsigned char) ((context1.IV_I[i])      );
+	// }
 	for (i = 0; i < 32; i++)
 	{	
 		printf(" %0x ", eHash[i]);
@@ -610,17 +612,18 @@ int main(int argc, char **argv)
 	int B_MM_len = MM_len;
 	int B_MM[B_MM_len];
 	memcpy(B_MM, MM, B_MM_len);
-	sm3_context context2;
-	sm3_context_init(&context2);
-	sm3_hash(B_MM, B_MM_len, &context2);
+	// sm3_context context2;
+	// sm3_context_init(&context2);
+	// sm3_hash(B_MM, B_MM_len, &context2);
 	unsigned char B_en[32];
-	for (i = 0; i < 8; i++)
-	{
-		B_en[4*i  ] = ((context2.IV_I[i]) >> 24);
-		B_en[4*i+1] = ((context2.IV_I[i]) >> 16);
-		B_en[4*i+2] = ((context2.IV_I[i]) >> 8 );
-		B_en[4*i+3] = ((context2.IV_I[i])      );
-	}
+	sm3_hash(B_MM, B_MM_len, B_en);
+	// for (i = 0; i < 8; i++)
+	// {
+	// 	B_en[4*i  ] = ((context2.IV_I[i]) >> 24);
+	// 	B_en[4*i+1] = ((context2.IV_I[i]) >> 16);
+	// 	B_en[4*i+2] = ((context2.IV_I[i]) >> 8 );
+	// 	B_en[4*i+3] = ((context2.IV_I[i])      );
+	// }
 	for (i = 0; i < 32; i++)
 	{
 		printf("%0x ", B_en[i]);
@@ -693,7 +696,7 @@ int main(int argc, char **argv)
 
 	SM2_key * sm2_key_A;
 	sm2_key_A = sm2_key_new(Group);
-	PubKey *public_A;
+	POINT *public_A;
 	public_A = pub_key_new();
 	set_sm2_key_init(sm2_param_dh_d_A, Group, sm2_key_A, public_A);
 	showBN(public_A->x);
@@ -762,16 +765,17 @@ int main(int argc, char **argv)
     }
     printf("\n");
 
-    sm3_context Z_A_context;
-    sm3_context_init(&Z_A_context);
-    sm3_hash(Z_A_temp, pos_ZA, &Z_A_context);
-    for (i = 0; i < 8; i++)
-    {
-    	Z_A[4*i  ] = Z_A_context.IV_I[i] >> 24;
-    	Z_A[4*i+1] = Z_A_context.IV_I[i] >> 16;
-    	Z_A[4*i+2] = Z_A_context.IV_I[i] >> 8;
-    	Z_A[4*i+3] = Z_A_context.IV_I[i];
-    }
+    // sm3_context Z_A_context;
+    // sm3_context_init(&Z_A_context);
+    // sm3_hash(Z_A_temp, pos_ZA, &Z_A_context);
+    // for (i = 0; i < 8; i++)
+    // {
+    // 	Z_A[4*i  ] = Z_A_context.IV_I[i] >> 24;
+    // 	Z_A[4*i+1] = Z_A_context.IV_I[i] >> 16;
+    // 	Z_A[4*i+2] = Z_A_context.IV_I[i] >> 8;
+    // 	Z_A[4*i+3] = Z_A_context.IV_I[i];
+    // }
+    sm3_hash(Z_A_temp, pos_ZA, Z_A);
     printf("Z_A value:\n");
     printf("**************************\n");
 
@@ -792,7 +796,7 @@ int main(int argc, char **argv)
      */
     SM2_key *sm2_key_B;
 	sm2_key_B = sm2_key_new(Group);
-	PubKey *public_B;
+	POINT *public_B;
 	public_B = pub_key_new();
 	set_sm2_key_init(sm2_param_dh_d_B, Group, sm2_key_B, public_B);
 	showBN(public_B->x);
@@ -862,16 +866,17 @@ int main(int argc, char **argv)
     }
     printf("\n");
 
-    sm3_context Z_B_context;
-    sm3_context_init(&Z_B_context);
-    sm3_hash(Z_B_temp, pos_ZB, &Z_B_context);
-    for (i = 0; i < 8; i++)
-    {
-    	Z_B[4*i  ] = Z_B_context.IV_I[i] >> 24;
-    	Z_B[4*i+1] = Z_B_context.IV_I[i] >> 16;
-    	Z_B[4*i+2] = Z_B_context.IV_I[i] >> 8;
-    	Z_B[4*i+3] = Z_B_context.IV_I[i];
-    }
+    // sm3_context Z_B_context;
+    // sm3_context_init(&Z_B_context);
+    // sm3_hash(Z_B_temp, pos_ZB, &Z_B_context);
+    // for (i = 0; i < 8; i++)
+    // {
+    // 	Z_B[4*i  ] = Z_B_context.IV_I[i] >> 24;
+    // 	Z_B[4*i+1] = Z_B_context.IV_I[i] >> 16;
+    // 	Z_B[4*i+2] = Z_B_context.IV_I[i] >> 8;
+    // 	Z_B[4*i+3] = Z_B_context.IV_I[i];
+    // }
+    sm3_hash(Z_B_temp, pos_ZB, Z_B);
     printf("Z_B value:\n");
     printf("**************************\n");
     for (i = 0 ; i < 32; i++)
@@ -881,7 +886,9 @@ int main(int argc, char **argv)
     		printf("\n");
     }
     
-
+    /*
+     * BBBBBBBBBBBBBBBBBBBBBBBBBBBB
+     */
     BIGNUM *B_2_W, *B_one, *B_2_inv;
     int B_2_W_len;
     B_2_W = BN_new();
@@ -964,8 +971,339 @@ int main(int argc, char **argv)
     	printf("%02x ", K_B[i]);
     printf("\n");
 
+    unsigned char S_b_temp[1000];
+    unsigned char S_B_temp[32];
+    int S_b_temp_len;
+    S_b_temp_len = 0;
+    BN_bn2bin(XV, S_b_temp);
+    S_b_temp_len += bn_len;
+    memcpy(&S_b_temp[S_b_temp_len], Z_A, 32);
+    S_b_temp_len += 32;
+    memcpy(&S_b_temp[S_b_temp_len], Z_B, 32);
+    S_b_temp_len += 32;
+    BN_bn2bin(RAX_B, &S_b_temp[S_b_temp_len]);
+    S_b_temp_len += bn_len;
+    BN_bn2bin(RAY_B, &S_b_temp[S_b_temp_len]);
+    S_b_temp_len += bn_len;
+    BN_bn2bin(RBX_B, &S_b_temp[S_b_temp_len]);
+    S_b_temp_len += bn_len;
+    BN_bn2bin(RBY_B, &S_b_temp[S_b_temp_len]);
+    S_b_temp_len += bn_len;
+
+    // sm3_context S_b_context;
+    // sm3_context_init(&S_b_context);
+    // sm3_hash(S_b_temp, S_b_temp_len, &S_b_context);
+    // for (i = 0 ;i < 8; i++)
+    // {
+    // 	S_B_temp[4*i  ] = S_b_context.IV_I[i] >> 24;
+    // 	S_B_temp[4*i+1] = S_b_context.IV_I[i] >> 16;
+    // 	S_B_temp[4*i+2] = S_b_context.IV_I[i] >>  8;
+    // 	S_B_temp[4*i+3] = S_b_context.IV_I[i]      ; 
+    // }
+    sm3_hash(S_B_temp, S_b_temp_len, S_B_temp);
+
+    unsigned char S_B_hash[1000];
+    unsigned char S_B[32];
+    int S_b_len;
+    S_b_len = 0;
+    S_B_hash[S_b_len] = 0x02;
+    S_b_len++;
+    BN_bn2bin(YV, &S_B_hash[S_b_len]);
+    S_b_len += bn_len;
+    memcpy(&S_B_hash[S_b_len], S_B_temp, 32);
+    S_b_len += 32;
+
+    // sm3_context S_B_context;
+    // sm3_context_init(&S_B_context);
+    // sm3_hash(S_B_hash, S_b_len, &S_B_context);
+    // for (i = 0 ;i < 8; i++)
+    // {
+    // 	S_B[4*i  ] = S_B_context.IV_I[i] >> 24;
+    // 	S_B[4*i+1] = S_B_context.IV_I[i] >> 16;
+    // 	S_B[4*i+2] = S_B_context.IV_I[i] >>  8;
+    // 	S_B[4*i+3] = S_B_context.IV_I[i]      ; 
+    // }
+
+    sm3_hash(S_B_hash, S_b_len, S_B);
+    for (i = 0; i < 32; i++)
+    {
+    	printf("%02x ", S_B[i]);
+    	if ((i+1)%4 == 0)
+    		printf("\n");
+    }
+
+    /*
+     * AAAAAAAAAAAAAAAAAAAAAAAAAAA
+     */
+    // BIGNUM *B_2_W, *B_one;
+    // int B_2_W_len;
+    // B_2_W = BN_new();
+    // B_one = BN_new();
+    // BN_one(B_one);
+    // BN_hex2bn(&B_2_W, "80000000000000000000000000000000");
+
+    BIGNUM *_X_1;
+    _X_1 = BN_new();
+    BN_mod(_X_1, RAX_B, B_2_W, Group->ctx);
+    BN_add(_X_1, _X_1, B_2_W);
+    showBN(_X_1);
+
+    BIGNUM *t_A;
+    BIGNUM *_X_2; 
+    t_A = BN_new();
+    _X_2 = BN_new();
+    BN_mod_mul(t_A, _X_1, RA_B, Group->n, Group->ctx);
+    BN_mod_add(t_A, t_A, sm2_key_A->priv_key, Group->n, Group->ctx);
+    BN_mod(_X_2, RBX_B, B_2_W, Group->ctx);
+    BN_add(_X_2, _X_2, B_2_W);
+    showBN(t_A);
+    showBN(_X_2);
+
+    EC_POINT *RB0, *RB1;
+    BIGNUM *XB0, *XB1, *YB0, *YB1;
+    
+    RB0 = EC_POINT_new(Group->group);
+    RB1 = EC_POINT_new(Group->group);
+    XB0 = BN_new();
+    YB0 = BN_new();
+    XB1 = BN_new();
+    YB1 = BN_new();
+
+    EC_POINT_mul(Group->group, RB0, NULL, RB_P, _X_2, Group->ctx);
+    EC_POINT_get_affine_coordinates_GFp(Group->group, RB0, XB0, YB0, Group->ctx);
+    showBN(XB0);
+    showBN(YB0);
+
+    EC_POINT_add(Group->group, RB1, RB0, sm2_key_B->pub_key, Group->ctx);
+    EC_POINT_get_affine_coordinates_GFp(Group->group, RB1, XB1, YB1, Group->ctx);
+    showBN(XB1);
+    showBN(YB1); 
+
+    BIGNUM *h_A, *h_temp_A;
+    BIGNUM *XU, *YU;
+    EC_POINT *U_P;
+    U_P = EC_POINT_new(Group->group);
+    h_A = BN_new();
+    h_temp_A = BN_new();
+    XU = BN_new();
+    YU = BN_new();
+    BN_hex2bn(&h_A, "1");
+    //BN_set_word(h, "1");
+    showBN(h_A);
+    BN_mul(h_temp_A, h_A, t_A, Group->ctx);
+    EC_POINT_mul(Group->group, U_P, NULL, RB1, h_temp_A, Group->ctx);
+    EC_POINT_get_affine_coordinates_GFp(Group->group, U_P, XU, YU, Group->ctx);
+    showBN(XU);
+    showBN(YU);
+
+    unsigned char K_A_KDF[1000];
+    int xu_len;
+    int K_A_pos = 0;
+    xu_len = BN_num_bytes(XU);
+    BN_bn2bin(XU, K_A_KDF);
+    K_A_pos += xu_len;
+    BN_bn2bin(YV, &K_A_KDF[K_A_pos]);
+    K_A_pos += xu_len;
+    memcpy(&K_B_KDF[K_A_pos], Z_A, 32);
+    K_A_pos += 32;
+    memcpy(&K_B_KDF[K_A_pos], Z_B, 32);
+    K_A_pos += 32;
+
+    unsigned char K_A[16];
+    KDF(K_A_KDF, K_A_pos, K_A, 16);
+    for (i = 0; i < 16; i++)
+    	printf("%02x ", K_A[i]);
+    printf("\n");
+
+    unsigned char S_a_temp[1000];
+    unsigned char S_A_temp[32];
+    int S_a_temp_len;
+    S_a_temp_len = 0;
+    BN_bn2bin(XU, S_a_temp);
+    S_a_temp_len += bn_len;
+    memcpy(&S_a_temp[S_a_temp_len], Z_A, 32);
+    S_a_temp_len += 32;
+    memcpy(&S_a_temp[S_a_temp_len], Z_B, 32);
+    S_a_temp_len += 32;
+    BN_bn2bin(RAX_B, &S_a_temp[S_a_temp_len]);
+    S_a_temp_len += bn_len;
+    BN_bn2bin(RAY_B, &S_a_temp[S_a_temp_len]);
+    S_a_temp_len += bn_len;
+    BN_bn2bin(RBX_B, &S_a_temp[S_a_temp_len]);
+    S_a_temp_len += bn_len;
+    BN_bn2bin(RBY_B, &S_a_temp[S_a_temp_len]);
+    S_a_temp_len += bn_len;
+
+    // sm3_context S_a_context;
+    // sm3_context_init(&S_a_context);
+    // sm3_hash(S_a_temp, S_a_temp_len, &S_a_context);
+    // for (i = 0 ;i < 8; i++)
+    // {
+    // 	S_A_temp[4*i  ] = S_a_context.IV_I[i] >> 24;
+    // 	S_A_temp[4*i+1] = S_a_context.IV_I[i] >> 16;
+    // 	S_A_temp[4*i+2] = S_a_context.IV_I[i] >>  8;
+    // 	S_A_temp[4*i+3] = S_a_context.IV_I[i]      ; 
+    // }
+
+    sm3_hash(S_a_temp, S_a_temp_len, S_A_temp);
+    unsigned char S_1_hash[1000];
+    unsigned char S_1[32];
+    int S_a_len;
+    S_a_len = 0;
+    S_1_hash[S_a_len] = 0x02;
+    S_a_len++;
+    BN_bn2bin(YU, &S_1_hash[S_a_len]);
+    S_a_len += bn_len;
+    memcpy(&S_1_hash[S_a_len], S_A_temp, 32);
+    S_a_len += 32;
+
+    // sm3_context S_1_context;
+    // sm3_context_init(&S_1_context);
+    // sm3_hash(S_1_hash, S_a_len, &S_1_context);
+    // for (i = 0 ;i < 8; i++)
+    // {
+    // 	S_1[4*i  ] = S_1_context.IV_I[i] >> 24;
+    // 	S_1[4*i+1] = S_1_context.IV_I[i] >> 16;
+    // 	S_1[4*i+2] = S_1_context.IV_I[i] >>  8;
+    // 	S_1[4*i+3] = S_1_context.IV_I[i]      ; 
+    // }
+    sm3_hash(S_1_hash, S_a_len, S_1);
+    for (i = 0; i < 32; i++)
+    {
+    	printf("%02x ", S_1[i]);
+    	if ((i+1)%4 == 0)
+    		printf("\n");
+    }
+
+    /*
+     * S_A
+     */
+    printf("S_A\n");
+    unsigned char _S_a_temp[1000];
+    unsigned char _S_A_temp[32];
+    int _S_a_temp_len;
+    _S_a_temp_len = 0;
+    BN_bn2bin(XU, _S_a_temp);
+    _S_a_temp_len += bn_len;
+    memcpy(&_S_a_temp[_S_a_temp_len], Z_A, 32);
+    _S_a_temp_len += 32;
+    memcpy(&_S_a_temp[_S_a_temp_len], Z_B, 32);
+    _S_a_temp_len += 32;
+    BN_bn2bin(RAX_B, &_S_a_temp[_S_a_temp_len]);
+    _S_a_temp_len += bn_len;
+    BN_bn2bin(RAY_B, &_S_a_temp[_S_a_temp_len]);
+    _S_a_temp_len += bn_len;
+    BN_bn2bin(RBX_B, &_S_a_temp[_S_a_temp_len]);
+    _S_a_temp_len += bn_len;
+    BN_bn2bin(RBY_B, &_S_a_temp[_S_a_temp_len]);
+    _S_a_temp_len += bn_len;
+
+    // sm3_context _S_a_context;
+    // sm3_context_init(&_S_a_context);
+    // sm3_hash(_S_a_temp, _S_a_temp_len, &_S_a_context);
+    // for (i = 0 ;i < 8; i++)
+    // {
+    // 	_S_A_temp[4*i  ] = _S_a_context.IV_I[i] >> 24;
+    // 	_S_A_temp[4*i+1] = _S_a_context.IV_I[i] >> 16;
+    // 	_S_A_temp[4*i+2] = _S_a_context.IV_I[i] >>  8;
+    // 	_S_A_temp[4*i+3] = _S_a_context.IV_I[i]      ; 
+    // }
+
+    sm3_hash(_S_a_temp, _S_a_temp_len, _S_A_temp);
+    unsigned char _S_A_hash[1000];
+    unsigned char S_A[32];
+    int _S_a_len;
+    _S_a_len = 0;
+    _S_A_hash[_S_a_len] = 0x03;
+    _S_a_len++;
+    BN_bn2bin(YU, &_S_A_hash[_S_a_len]);
+    _S_a_len += bn_len;
+    memcpy(&_S_A_hash[_S_a_len], _S_A_temp, 32);
+    _S_a_len += 32;
+
+    // sm3_context S_A_context;
+    // sm3_context_init(&S_A_context);
+    // sm3_hash(_S_A_hash, _S_a_len, &S_A_context);
+    // for (i = 0 ;i < 8; i++)
+    // {
+    // 	S_A[4*i  ] = S_A_context.IV_I[i] >> 24;
+    // 	S_A[4*i+1] = S_A_context.IV_I[i] >> 16;
+    // 	S_A[4*i+2] = S_A_context.IV_I[i] >>  8;
+    // 	S_A[4*i+3] = S_A_context.IV_I[i]      ; 
+    // }
+    sm3_hash(_S_A_hash, _S_a_len, S_A);
+    for (i = 0; i < 32; i++)
+    {
+    	printf("%02x ", S_A[i]);
+    	if ((i+1)%4 == 0)
+    		printf("\n");
+    }
 
 
+    /*
+     * S2
+     */
+    printf("S2\n");
+    unsigned char _S_b_temp[1000];
+    unsigned char _S_B_temp[32];
+    int _S_b_temp_len;
+    _S_b_temp_len = 0;
+    BN_bn2bin(XV, _S_b_temp);
+    _S_b_temp_len += bn_len;
+    memcpy(&_S_b_temp[_S_b_temp_len], Z_A, 32);
+    _S_b_temp_len += 32;
+    memcpy(&_S_b_temp[_S_b_temp_len], Z_B, 32);
+    _S_b_temp_len += 32;
+    BN_bn2bin(RAX_B, &_S_b_temp[_S_b_temp_len]);
+    _S_b_temp_len += bn_len;
+    BN_bn2bin(RAY_B, &_S_b_temp[_S_b_temp_len]);
+    _S_b_temp_len += bn_len;
+    BN_bn2bin(RBX_B, &_S_b_temp[_S_b_temp_len]);
+    _S_b_temp_len += bn_len;
+    BN_bn2bin(RBY_B, &_S_b_temp[_S_b_temp_len]);
+    _S_b_temp_len += bn_len;
+
+    // sm3_context _S_b_context;
+    // sm3_context_init(&_S_b_context);
+    // sm3_hash(_S_b_temp, _S_b_temp_len, &_S_b_context);
+    // for (i = 0 ;i < 8; i++)
+    // {
+    // 	_S_B_temp[4*i  ] = _S_b_context.IV_I[i] >> 24;
+    // 	_S_B_temp[4*i+1] = _S_b_context.IV_I[i] >> 16;
+    // 	_S_B_temp[4*i+2] = _S_b_context.IV_I[i] >>  8;
+    // 	_S_B_temp[4*i+3] = _S_b_context.IV_I[i]      ; 
+    // }
+
+    sm3_hash(_S_b_temp, _S_b_temp_len, _S_B_temp);
+    unsigned char _S_B_hash[1000];
+    unsigned char S_2[32];
+    int _S_b_len;
+    _S_b_len = 0;
+    _S_B_hash[_S_b_len] = 0x03;
+    _S_b_len++;
+    BN_bn2bin(YV, &_S_B_hash[_S_b_len]);
+    _S_b_len += bn_len;
+    memcpy(&_S_B_hash[_S_b_len], &_S_B_temp[0], 32);
+    _S_b_len += 32;
+
+    // sm3_context _S_B_context;
+    // sm3_context_init(&_S_B_context);
+    // sm3_hash(_S_B_hash, _S_b_len, &_S_B_context);
+    // for (i = 0 ;i < 8; i++)
+    // {
+    // 	S_2[4*i  ] = _S_B_context.IV_I[i] >> 24;
+    // 	S_2[4*i+1] = _S_B_context.IV_I[i] >> 16;
+    // 	S_2[4*i+2] = _S_B_context.IV_I[i] >>  8;
+    // 	S_2[4*i+3] = _S_B_context.IV_I[i]      ; 
+    // }
+
+    sm3_hash(_S_B_hash, _S_b_len, S_2);
+    for (i = 0; i < 32; i++)
+    {
+    	printf("%02x ", S_2[i]);
+    	if ((i+1)%4 == 0)
+    		printf("\n");
+    } 
 
 	return 0;
 }

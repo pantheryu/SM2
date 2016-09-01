@@ -98,7 +98,7 @@ ULONG CF(sm3_context *context, ULONG BL[16])
 
 }
 
-int sm3_hash(UCHAR *message, int len, sm3_context *context)
+int sm3_hash_half(UCHAR *message, int len, sm3_context *context)
 {
 	int ulen;
 	int i, j, k;
@@ -161,6 +161,24 @@ int sm3_hash(UCHAR *message, int len, sm3_context *context)
 		CF(context, &Mess[m][0]);
 
 	}
+}
+
+int sm3_hash(UCHAR *message, int len, UCHAR *Z)
+{
+	sm3_context context;
+	sm3_context_init(&context);
+	sm3_hash_half(message, len, &context);
+
+	int i;
+	for (i = 0; i < 8; i++)
+	{
+		Z[4*i  ] = context.IV_I[i] >> 24;
+		Z[4*i+1] = context.IV_I[i] >> 16;
+		Z[4*i+2] = context.IV_I[i] >>  8;
+		Z[4*i+3] = context.IV_I[i]      ;
+	}
+
+	return 0;
 }
 
 // int main(int argc, char** argv)
